@@ -1,6 +1,20 @@
 import json
 import os
+from pathlib import Path
+
 from tuya_client import TuyaClient
+
+_DEVICES_CONFIG = Path(__file__).resolve().parent.parent / "devices.json"
+
+
+def _load_custom_labels() -> dict[str, dict]:
+    """Load name/description overrides from devices.json (optional)."""
+    if not _DEVICES_CONFIG.exists():
+        return {}
+    try:
+        return json.loads(_DEVICES_CONFIG.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def _normalize_brightness(status: dict) -> dict:
@@ -59,16 +73,24 @@ class DeviceRegistry:
     # ------------------------------------------------------------------
 
     def _fetch_info(self, device_id: str) -> dict:
+        custom = _load_custom_labels().get(device_id, {})
         res = self.client.request("GET", f"/v1.0/devices/{device_id}")
         if res.get("success"):
             r = res["result"]
             return {
                 "id": device_id,
-                "name": r.get("name", device_id),
+                "name": custom.get("name") or r.get("name", device_id),
+                "description": custom.get("description", ""),
                 "category": r.get("category", "unknown"),
                 "online": r.get("online", False),
             }
-        return {"id": device_id, "name": device_id, "category": "unknown", "online": False}
+        return {
+            "id": device_id,
+            "name": custom.get("name", device_id),
+            "description": custom.get("description", ""),
+            "category": "unknown",
+            "online": False,
+        }
 
     def _fetch_status(self, device_id: str) -> dict:
         res = self.client.request("GET", f"/v1.0/devices/{device_id}/status")
@@ -130,8 +152,9 @@ class DeviceRegistry:
             status = data["status"]
             online = "online" if info.get("online") else "offline"
             status_str = json.dumps(status, ensure_ascii=False) if status else "indisponível"
+            desc = f" | descrição={info['description']}" if info.get("description") else ""
             lines.append(
-                f"  - {info['name']} | id={device_id} | categoria={info['category']}"
+                f"  - {info['name']}{desc} | id={device_id} | categoria={info['category']}"
                 f" | {online} | estado={status_str}"
             )
 
