@@ -1,5 +1,34 @@
 # Architecture — RAG Agent (Dispositivos Inteligentes)
 
+## Execucao local
+
+Pre-requisitos:
+- Python 3.11+ (recomendado 3.11 ou 3.12)
+- Credenciais validas em `.env`
+
+Passos:
+
+```bash
+# criar e ativar venv (exemplo)
+python -m venv .venv
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# Linux/macOS
+source .venv/bin/activate
+
+# instalar dependencias
+pip install -r requirements.txt
+
+# iniciar app
+streamlit run src/app_rag.py
+```
+
+Observacoes:
+- O projeto ja inclui `.streamlit/config.toml` com `address = "0.0.0.0"`, `port = 8501` e `headless = true`.
+- Isso permite acesso pela rede local em `http://IP_DA_MAQUINA:8501` (celular/tablet na mesma rede).
+
 ## Workflow
 
 ```mermaid
