@@ -132,6 +132,30 @@ class TestLoad:
         assert set(registry.devices.keys()) == {"dev1", "dev2"}
 
 
+class TestFetchInfoChannels:
+    def test_channels_passed_through_from_custom_labels(self, registry, mock_client):
+        mock_client.request.return_value = _make_info_response("dev1")
+        channels = {"switch_1": "Sala", "switch_2": "Churrasqueira", "switch_3": "Muro"}
+        custom = {"dev1": {"name": "Triple", "channels": channels}}
+        with patch("device_registry._load_custom_labels", return_value=custom):
+            info = registry._fetch_info("dev1")
+        assert info["channels"] == channels
+
+    def test_channels_empty_when_not_in_custom_labels(self, registry, mock_client):
+        mock_client.request.return_value = _make_info_response("dev1")
+        with patch("device_registry._load_custom_labels", return_value={}):
+            info = registry._fetch_info("dev1")
+        assert info["channels"] == {}
+
+    def test_channels_included_on_api_failure(self, registry, mock_client):
+        mock_client.request.return_value = {"success": False}
+        channels = {"switch_1": "Sala"}
+        custom = {"dev1": {"channels": channels}}
+        with patch("device_registry._load_custom_labels", return_value=custom):
+            info = registry._fetch_info("dev1")
+        assert info["channels"] == channels
+
+
 class TestFetchInfo:
     def test_returns_fallback_on_api_failure(self, registry, mock_client):
         mock_client.request.return_value = {"success": False}
@@ -207,6 +231,23 @@ class TestBuildContext:
         assert "Lamp" in ctx
         assert "dev1" in ctx
         assert "online" in ctx
+
+    def test_includes_channels_when_present(self, registry):
+        registry._devices = {
+            "dev1": {
+                "info": {
+                    "name": "Triple",
+                    "description": "",
+                    "category": "kg",
+                    "online": True,
+                    "channels": {"switch_1": "Sala", "switch_2": "Churrasqueira"},
+                },
+                "status": {},
+            }
+        }
+        ctx = registry.build_context()
+        assert "Sala" in ctx
+        assert "Churrasqueira" in ctx
 
     def test_includes_description_when_present(self, registry):
         registry._devices = {

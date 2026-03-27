@@ -2,7 +2,11 @@
 
 import json
 import unicodedata
+import warnings
 from pathlib import Path
+
+# langchain_core imports pydantic.v1 compat shim which warns on Python 3.14+
+warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality")
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -117,20 +121,27 @@ def executar_comando_direto(prompt: str) -> tuple[str, bool] | None:
         raw = f"Status de {name}:\n{json.dumps(refreshed, ensure_ascii=False)}"
         return raw, True  # needs beautification
 
-    # --- on / off ---
+    # --- resolve switch code (channel-aware) ---
+    channels = target_data["info"].get("channels", {})
     switch_code = _primary_switch_code(status)
+    display_name = name
+    for code, ch_name in channels.items():
+        if normalizar_texto(ch_name) in texto:
+            switch_code = code
+            display_name = f"{name} — {ch_name}"
+            break
 
     if any(p in texto for p in ["apagar", "desligar"]):
         res = registry.control(target_id, [{"code": switch_code, "value": False}])
         if isinstance(res, dict) and res.get("success"):
-            return f"Pronto! Desliguei **{name}**.", False
-        return f"Falha ao desligar {name}: {json.dumps(res, ensure_ascii=False)}", False
+            return f"Pronto! Desliguei **{display_name}**.", False
+        return f"Falha ao desligar {display_name}: {json.dumps(res, ensure_ascii=False)}", False
 
     if any(p in texto for p in ["acender", "ligar"]):
         res = registry.control(target_id, [{"code": switch_code, "value": True}])
         if isinstance(res, dict) and res.get("success"):
-            return f"Pronto! Liguei **{name}**.", False
-        return f"Falha ao ligar {name}: {json.dumps(res, ensure_ascii=False)}", False
+            return f"Pronto! Liguei **{display_name}**.", False
+        return f"Falha ao ligar {display_name}: {json.dumps(res, ensure_ascii=False)}", False
 
     return None  # prompt matched a device but no known action → LLM
 

@@ -83,6 +83,7 @@ class DeviceRegistry:
                 "description": custom.get("description", ""),
                 "category": r.get("category", "unknown"),
                 "online": r.get("online", False),
+                "channels": custom.get("channels", {}),
             }
         return {
             "id": device_id,
@@ -90,6 +91,7 @@ class DeviceRegistry:
             "description": custom.get("description", ""),
             "category": "unknown",
             "online": False,
+            "channels": custom.get("channels", {}),
         }
 
     def _fetch_status(self, device_id: str) -> dict:
@@ -153,9 +155,14 @@ class DeviceRegistry:
             online = "online" if info.get("online") else "offline"
             status_str = json.dumps(status, ensure_ascii=False) if status else "indisponível"
             desc = f" | descrição={info['description']}" if info.get("description") else ""
+            channels = info.get("channels", {})
+            ch_str = (
+                " | canais=" + ", ".join(f"{k}={v}" for k, v in channels.items())
+                if channels else ""
+            )
             lines.append(
                 f"  - {info['name']}{desc} | id={device_id} | categoria={info['category']}"
-                f" | {online} | estado={status_str}"
+                f" | {online}{ch_str} | estado={status_str}"
             )
 
         lines.append(

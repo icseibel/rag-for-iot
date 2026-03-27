@@ -240,6 +240,73 @@ class TestSingleDeviceCommands:
 # _bulk_control
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# executar_comando_direto — multi-channel device
+# ---------------------------------------------------------------------------
+
+def _multichannel_device(name="Interruptor Triple"):
+    return {
+        "info": {
+            "name": name,
+            "online": True,
+            "description": "",
+            "channels": {
+                "switch_1": "Sala",
+                "switch_2": "Churrasqueira",
+                "switch_3": "Muro",
+            },
+        },
+        "status": {"switch_1": True, "switch_2": False, "switch_3": True},
+    }
+
+
+class TestMultiChannelCommands:
+    def setup_method(self):
+        _mock_registry.devices = {"triple1": _multichannel_device()}
+        _mock_registry.control.return_value = {"success": True}
+
+    def test_ligar_sala_uses_switch_1(self):
+        result = executar_comando_direto("ligar sala")
+        assert result is not None
+        text, _ = result
+        assert "Sala" in text
+        cmd = _mock_registry.control.call_args[0][1]
+        assert cmd == [{"code": "switch_1", "value": True}]
+
+    def test_desligar_churrasqueira_uses_switch_2(self):
+        result = executar_comando_direto("desligar churrasqueira")
+        assert result is not None
+        text, _ = result
+        assert "Churrasqueira" in text
+        cmd = _mock_registry.control.call_args[0][1]
+        assert cmd == [{"code": "switch_2", "value": False}]
+
+    def test_ligar_muro_uses_switch_3(self):
+        result = executar_comando_direto("ligar muro")
+        assert result is not None
+        cmd = _mock_registry.control.call_args[0][1]
+        assert cmd == [{"code": "switch_3", "value": True}]
+
+    def test_channel_name_in_response(self):
+        result = executar_comando_direto("ligar churrasqueira")
+        text, _ = result
+        assert "Churrasqueira" in text
+
+    def test_accent_insensitive_channel_match(self):
+        """'churrasqueira' with/without accent should both match."""
+        result = executar_comando_direto("ligar churrasqueira")
+        cmd = _mock_registry.control.call_args[0][1]
+        assert cmd[0]["code"] == "switch_2"
+
+    def test_no_channel_match_falls_back_to_primary(self):
+        """Command with no channel keyword → _primary_switch_code is used."""
+        with patch.object(app_rag, "_primary_switch_code", return_value="switch_primary"):
+            result = executar_comando_direto("ligar interruptor")
+        assert result is not None
+        cmd = _mock_registry.control.call_args[0][1]
+        assert cmd[0]["code"] == "switch_primary"
+
+
 class TestBulkControl:
     def test_reports_success_per_device(self):
         _mock_registry.devices = {
